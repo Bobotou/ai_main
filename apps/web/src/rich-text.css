@@ -1,0 +1,44 @@
+/* TipTap 编辑器内容样式(写信框 + AI 润色预览共用) */
+.tiptap {
+  outline: none;
+  /* 焦点指示交给编辑器容器的 focus-within 绿边,自身不再出 focus 环 */
+  min-height: 240px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--ink-1);
+}
+.tiptap:focus, .tiptap:focus-visible { outline: none; }
+.tiptap p { margin: 0.35em 0; }
+.tiptap h1 { font-size: 1.45em; font-weight: 600; margin: 0.7em 0 0.35em; }
+.tiptap h2 { font-size: 1.25em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.tiptap h3 { font-size: 1.1em; font-weight: 600; margin: 0.5em 0 0.25em; }
+.tiptap ul { list-style: disc; padding-left: 1.4em; margin: 0.4em 0; }
+.tiptap ol { list-style: decimal; padding-left: 1.4em; margin: 0.4em 0; }
+.tiptap blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  margin: 0.5em 0;
+  color: var(--ink-3);
+}
+.tiptap pre {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 12.5px;
+  overflow-x: auto;
+}
+.tiptap code { font-size: 0.92em; background: var(--canvas); border-radius: 4px; padding: 1px 4px; }
+.tiptap a { color: var(--accent-strong); text-decoration: underline; }
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--ink-4);
+  pointer-events: none;
+  height: 0;
+}
+/* 工具栏按钮激活态 */
+.editor-toolbar button.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}

@@ -1,0 +1,226 @@
+// Prisma schema —— 对应技术架构 §3 数据模型(M1 范围)
+// embeddings / extracted_entities / follow_ups / subscriptions / rules 在 M2 迁移中补充
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  totpSecret   String?
+  createdAt    DateTime @default(now())
+
+  accounts MailboxAccount[]
+  labels   Label[]
+}
+
+model MailboxAccount {
+  id          String   @id @default(cuid())
+  userId      String
+  address     String
+  provider    String // gmail / qq / 163 / outlook / custom
+  authType    String   @default("password")
+  imapHost    String
+  imapPort    Int
+  imapTls     Boolean  @default(true)
+  smtpHost    String
+  smtpPort    Int
+  smtpTls     Boolean  @default(true)
+  credentialsEncrypted String
+  syncReady   Boolean  @default(false)
+  lastSyncAt  DateTime?
+  lastSyncError String?
+  createdAt   DateTime @default(now())
+
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folders  Folder[]
+  messages Message[]
+  scheduled ScheduledSend[]
+
+  @@index([userId])
+}
+
+model Folder {
+  id         String  @id @default(cuid())
+  accountId  String
+  name       String // INBOX / Sent / Drafts / 自定义
+  folderType String  @default("custom") // inbox/sent/drafts/archived/trash/custom
+  uidvalidity Int?
+  lastSeenUid Int    @default(0)
+
+  account  MailboxAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([accountId, name])
+}
+
+model Thread {
+  id             String   @id @default(cuid())
+  userId         String
+  subjectNorm    String
+  participantsHash String
+  lastMessageAt  DateTime
+  messageCount   Int      @default(0)
+
+  messages Message[]
+
+  @@index([userId, lastMessageAt])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  accountId String
+  folderId  String
+  threadId  String?
+  direction String   @default("in") // in | out
+  messageIdHeader String?
+
+  fromJson String?
+  toJson   String?
+  ccJson   String?
+  subject  String
+  snippet  String
+  bodyText String
+  bodyHtmlSafe String?
+  sentAt   DateTime
+  sizeBytes Int     @default(0)
+  isRead   Boolean  @default(false)
+  isStarred Boolean @default(false)
+  uid       Int?
+  rawEmlPath String? // 本地磁盘原始邮件路径(M2 演进为对象存储 key)
+
+  aiCategory String? // important/notification/marketing/social/other
+  aiPriority Int?
+  aiSummary  String?
+  aiSummaryGeneratedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  account    MailboxAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  folder     Folder         @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  thread     Thread?        @relation(fields: [threadId], references: [id])
+  labels     MessageLabel[]
+  attachments Attachment[]
+  aiJobs     AiJob[]
+
+  @@unique([accountId, folderId, uid])
+  @@index([folderId, sentAt(sort: Desc)])
+  @@index([threadId])
+}
+
+model Attachment {
+  id        String  @id @default(cuid())
+  messageId String
+  filename  String
+  mimeType  String
+  sizeBytes Int
+  isInline  Boolean @default(false)
+  contentId String?
+  filePath  String? // 本地磁盘路径(M2 演进为对象存储 key)
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+}
+
+model Label {
+  id      String @id @default(cuid())
+  userId  String
+  name    String
+  color   String @default("#6b7280")
+  isSmart Boolean @default(false)
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages MessageLabel[]
+
+  @@unique([userId, name])
+}
+
+model MessageLabel {
+  messageId String
+  labelId   String
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  label   Label   @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, labelId])
+}
+
+// 通讯录:收发邮件自动收集 + 用户手动添加
+model Contact {
+  id      String  @id @default(cuid())
+  userId  String
+  email   String
+  name    String? // 展示名:来自邮件头或用户手动填写
+  source  String  @default("auto") // auto=收发邮件自动收集 | manual=用户手动添加
+  usageCount Int  @default(0)  // 出现在收发件中的次数(自动收集累加)
+  lastUsedAt DateTime?         // 最近一次往来时间
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, email])
+  @@index([userId, lastUsedAt(sort: Desc)])
+}
+
+model ScheduledSend {
+  id        String   @id @default(cuid())
+  userId    String
+  accountId String
+  payloadJson String // 完整发信内容(收件人/主题/HTML 等)
+  scheduledAt DateTime
+  status    String   @default("pending") // pending/sent/failed/cancelled
+  retryCount Int     @default(0)
+  lastError String?
+  sentMessageIdHeader String?
+  createdAt DateTime @default(now())
+
+  account MailboxAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledAt])
+}
+
+model AiJob {
+  id        String   @id @default(cuid())
+  userId    String
+  messageId String?
+  jobType   String // summarize/classify/embed/extract/draft/rewrite
+  status    String  @default("pending") // pending/running/done/failed/skipped
+  model     String?
+  promptTokens Int?
+  completionTokens Int?
+  estimatedCostUsd Float?
+  error     String?
+  createdAt DateTime @default(now())
+
+  message Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+}
+
+model AiCache {
+  cacheKey  String   @id
+  userId    String
+  resultJson String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+/// AI 模型接入配置(每用户一份,从设置页保存;优先级高于 .env)
+model AiConfig {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  baseUrl   String
+  apiKeyEncrypted String
+  modelChat String
+  modelLight String
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}

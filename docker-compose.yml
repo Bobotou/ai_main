@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: aimail-postgres
+    environment:
+      POSTGRES_USER: aimail
+      POSTGRES_PASSWORD: aimail_dev_password   # 与 apps/server/.env 的 DATABASE_URL 保持一致
+      POSTGRES_DB: aimail
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aimail"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: aimail-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.9
+    container_name: aimail-meilisearch
+    environment:
+      MEILI_MASTER_KEY: aimail_dev_meili_key      # 与 apps/server/.env 的 MEILI_MASTER_KEY 保持一致
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "7700:7700"
+    volumes:
+      - meilidata:/meili_data
+
+volumes:
+  pgdata:
+  redisdata:
+  meilidata:

@@ -1,0 +1,27 @@
+{
+  "name": "@ai-mail/mail-core",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "dev": "tsc --watch --preserveWatchOutput"
+  },
+  "dependencies": {
+    "html-to-text": "^9.0.5",
+    "imapflow": "^1.0.160",
+    "mailparser": "^3.7.0",
+    "nodemailer": "^6.9.14",
+    "sanitize-html": "^2.13.0"
+  },
+  "devDependencies": {
+    "@types/html-to-text": "^9.0.4",
+    "@types/mailparser": "^3.4.5",
+    "@types/node": "^20.14.0",
+    "@types/nodemailer": "^6.4.15",
+    "@types/sanitize-html": "^2.13.0",
+    "typescript": "^5.6.0"
+  }
+}
